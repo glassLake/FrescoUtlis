@@ -1,7 +1,9 @@
-package com.hss01248.tools.pack.image.fresco;
+package com.qxinli.newpack.image;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.PointF;
+import android.media.FaceDetector;
 import android.net.Uri;
 import android.text.TextUtils;
 import android.webkit.URLUtil;
@@ -34,11 +36,12 @@ import com.facebook.imagepipeline.image.CloseableImage;
 import com.facebook.imagepipeline.request.BasePostprocessor;
 import com.facebook.imagepipeline.request.ImageRequest;
 import com.facebook.imagepipeline.request.ImageRequestBuilder;
+import com.orhanobut.logger.Logger;
 
 import java.io.File;
 import java.util.UUID;
 
-import jp.wasabeef.fresco.processors.BlurPostprocessor;
+
 
 /**
  * Created by Administrator on 2016/6/20 0020.
@@ -86,7 +89,7 @@ public class FrescoUtils {
      *                 所以此处直接设置到ResizeOptions上,直接让解码生成的bitmap就缩小,而BlurPostprocessor
      *                 内部sampling设置为1,无需再缩
      */
-    public static void loadUrlInBlur(String url,SimpleDraweeView draweeView,
+    /*public static void loadUrlInBlur(String url,SimpleDraweeView draweeView,
                                      int width,int height,Context context,int radius,int sampling){
 
         if (sampling<2){
@@ -94,7 +97,7 @@ public class FrescoUtils {
         }
         loadUrl(url,draweeView,new BlurPostprocessor(context,radius,1),width/sampling,height/sampling,null);
 
-    }
+    }*/
 
 
 
@@ -140,10 +143,14 @@ public class FrescoUtils {
 
     public static void load(Uri uri,SimpleDraweeView draweeView,BasePostprocessor processor,int width,int height,
                                 BaseControllerListener listener){
+        ResizeOptions resizeOptions = null;
+        if (width >0 && height > 0){
+            resizeOptions = new ResizeOptions(width,height);
+        }
         ImageRequest request =
                 ImageRequestBuilder.newBuilderWithSource(uri)
                         .setPostprocessor(processor)
-                        .setResizeOptions(new ResizeOptions(width,height))
+                        .setResizeOptions(resizeOptions)
                         //缩放,在解码前修改内存中的图片大小, 配合Downsampling可以处理所有图片,否则只能处理jpg,
                         // 开启Downsampling:在初始化时设置.setDownsampleEnabled(true)
                         .setProgressiveRenderingEnabled(true)//支持图片渐进式加载
@@ -157,6 +164,8 @@ public class FrescoUtils {
                         .setOldController(draweeView.getController())
                         .setAutoPlayAnimations(true) //自动播放gif动画
                         .build();
+
+
 
         draweeView.setController(controller);
     }
@@ -465,8 +474,8 @@ public class FrescoUtils {
      * @param listener
      *
      */
-    public static void getBitmapWithProcessor(String url, Context context, int width, int height,
-                                              BasePostprocessor processor,final BitmapListener listener){
+    public static void getBitmapWithProcessor(final String url, Context context, final int width, final int height,
+                                              BasePostprocessor processor, final BitmapListener listener){
 
         ResizeOptions resizeOptions = null;
         if (width !=0 && height != 0 ){
@@ -476,7 +485,7 @@ public class FrescoUtils {
         ImageRequest imageRequest = ImageRequestBuilder.newBuilderWithSource(Uri.parse(url))
                 .setProgressiveRenderingEnabled(false) //我们是拿bitmap对象,不是显示,所以这里不需要渐进渲染
                 .setPostprocessor(processor)
-                .setResizeOptions(resizeOptions)
+                .setResizeOptions(resizeOptions)//无法支持gif
                 .build();
 
         ImagePipeline imagePipeline = Fresco.getImagePipeline();
@@ -485,7 +494,28 @@ public class FrescoUtils {
         dataSource.subscribe(new BaseBitmapDataSubscriber() {
             @Override
             protected void onNewResultImpl(Bitmap bitmap) {
-                listener.onSuccess(bitmap);
+                //注意，gif图片解码方法与普通图片不一样，是无法拿到bitmap的。如果要把gif的第一帧的bitmap返回，怎么做？
+                //GifImage.create(bytes).decode(1l,9).getFrameInfo(1).
+                if (url.contains("gif")){
+                    File cacheFile  = getFileFromDiskCache(url);
+                    if (cacheFile.exists()){
+                      Bitmap bitmapGif =   GifUtils.getBitmapFromGifFile(cacheFile);//拿到gif第一帧的bitmap
+                        Bitmap target = MyBitmapUtils.compressBitmap(bitmapGif,true,width,height);//将bitmap压缩到指定宽高。
+                        if (target != null){
+                            listener.onSuccess(target);
+                        }else {
+                            listener.onFail();
+                        }
+
+                    }else {
+                        listener.onFail();
+                    }
+
+                }else {
+                    listener.onSuccess(bitmap);
+                }
+
+
             }
 
             @Override
@@ -495,6 +525,106 @@ public class FrescoUtils {
         }, CallerThreadExecutor.getInstance());
 
     }
+
+
+    public static void loadUrlWithFace(final String url, final SimpleDraweeView draweeView){
+        PointF pointF = new PointF(0.5f,0.38f);
+        draweeView
+                .getHierarchy()
+                .setActualImageFocusPoint(pointF);
+        loadUrl(url, draweeView, null, 0, 0,null);
+
+              /*  loadUrl(url, draweeView, null, 0, 0, new BaseControllerListener(){
+            @Override
+            public void onFinalImageSet(String id, Object imageInfo, Animatable animatable) {
+                super.onFinalImageSet(id, imageInfo, animatable);
+                getBitmap(url, UIUtils.getContext(), 0, 0, new BitmapListener() {
+                    @Override
+                    public void onSuccess(final Bitmap bitmap) {
+                        ThreadPoolFactory.getNormalPool().execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                final PointF f = getFaceFocusRatio(bitmap);
+                                if (f != null){
+
+                                    UIUtils.postTaskSafely(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            draweeView
+                                                    .getHierarchy()
+                                                    .setActualImageFocusPoint(f);
+                                        }
+                                    });
+
+
+                                }
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onFail() {
+
+                    }
+                });
+            }
+        });*/
+
+
+
+    }
+
+
+
+    public static PointF getFaceFocusRatio(Bitmap bitmap){
+        PointF pointF = new PointF(0.5f,0.5f);
+
+
+
+//假设最多有5张脸
+        int faceCount = 5;
+        FaceDetector mFaceDetector = new FaceDetector(bitmap.getWidth(),bitmap.getHeight(),faceCount);
+        FaceDetector.Face[] faces = new FaceDetector.Face[faceCount];
+        //获取实际上有多少张脸
+        faceCount = mFaceDetector.findFaces(bitmap, faces);
+        Logger.e(bitmap.getWidth()+"--width---heitht:"+ bitmap.getHeight()+"---count:"+faceCount);
+        if (faceCount == 1){
+            FaceDetector.Face face = faces[0];
+            PointF point = new PointF();
+            face.getMidPoint(point);
+
+            pointF.x = point.x/bitmap.getWidth();
+            pointF.y = point.y/bitmap.getHeight();
+
+
+        }else if (faceCount >1){
+            int x = 0;
+            int y = 0;
+            for (int i = 0; i < faceCount; i++) {//计算多边形的中心
+                FaceDetector.Face face = faces[i];
+                PointF point = new PointF();
+                face.getMidPoint(point);
+                x += point.x;
+                y += point.y;
+            }
+            pointF.x = x/faceCount/bitmap.getWidth();
+            pointF.y = y /faceCount/bitmap.getHeight();
+        }else {
+            pointF = null;
+        }
+
+        if (pointF != null){
+            Logger.e("x:"+ pointF.x+"---y:"+pointF.y);
+        }
+
+        return pointF;
+
+    }
+
+
+
+
+
 
     /**
      * Created by hss01248 on 11/26/2015.
