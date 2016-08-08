@@ -1,4 +1,4 @@
-package com.qxinli.newpack.image;
+package com.hss01248.retrofitdemo.gif;
 
 import android.graphics.Bitmap;
 
@@ -41,9 +41,10 @@ public class GifUtils {
         return bao.toByteArray();
     }
 
-    public static Bitmap getBitmapFromGifFile(File file){
+    public static Bitmap getBitmapFromGifFile(File file,int targetWidth,int targetHeight){
 
         GifImageDecoder  gifDecoder = new GifImageDecoder();
+        gifDecoder.setResization(targetWidth,targetHeight);
         FileInputStream fis = null;
         try {
              fis = new FileInputStream(file);

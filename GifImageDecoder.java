@@ -1,4 +1,4 @@
-package com.qxinli.newpack.image;
+package com.hss01248.retrofitdemo.gif;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
@@ -59,6 +59,17 @@ public class GifImageDecoder {
     private GifHeader mGifHeader;
     private GraphicControlExtension mGcExt;
     private ImageBlock mImageBlock;
+
+    //新添加的
+    private int targetWidth;
+    private int targetHeight;
+
+    public void setResization(int targetWidth,int targetHeight){
+        this.targetWidth = targetWidth;
+        this.targetHeight = targetHeight;
+    }
+
+
 
     private static class GifFrame {
         public GifFrame(Bitmap im, int del) {
@@ -233,12 +244,28 @@ public class GifImageDecoder {
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inMutable = true;
             options.inPreferredConfig = Bitmap.Config.RGB_565;
-            Bitmap newBitmap = BitmapFactory.decodeStream(new BufferedInputStream(new ByteArrayInputStream(outputStream.toByteArray())));
+
+            //计算insamplesize:
+            int inSampleSize = 1;
+            //先根据宽度进行缩小
+            while (mWidth / inSampleSize > targetWidth) {
+                inSampleSize++;
+            }
+            //然后根据高度进行缩小
+            while (mHeight / inSampleSize > targetHeight) {
+                inSampleSize++;
+            }
+
+            if (inSampleSize <= 0) {
+                inSampleSize = 1;
+            }
+            options.inSampleSize = inSampleSize;
+            Bitmap newBitmap = BitmapFactory.decodeStream(new BufferedInputStream(new ByteArrayInputStream(outputStream.toByteArray())),null,options);//加上图片缩略
             if (newBitmap != null) {
                 if (mLastImage == null) {
                     return newBitmap;
                 } else {
-                    Bitmap bitmap = Bitmap.createBitmap(mWidth, mHeight, Bitmap.Config.RGB_565);
+                    Bitmap bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.RGB_565);
                     Canvas canvas = new Canvas(bitmap);
                     canvas.drawBitmap(mLastImage, 0, 0, null);
                     canvas.drawBitmap(newBitmap, 0, 0, null);

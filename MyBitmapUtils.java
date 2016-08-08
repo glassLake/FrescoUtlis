@@ -1,4 +1,4 @@
-package com.qxinli.newpack.image;
+package com.hss01248.retrofitdemo.gif;
 
 import android.content.Context;
 import android.graphics.Bitmap;
