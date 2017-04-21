@@ -1,9 +1,10 @@
 # FrescoUtlis
 具体介绍请看:    [Fresco图片加载框架的介绍,相关开源库以及工具类的封装](http://blog.csdn.net/hss01248/article/details/51757989)
 
-# Deprecated
-新库地址请看:
-[https://github.com/hss01248/MyImageUtil](https://github.com/hss01248/MyImageUtil)
+# 此库已停止维护,图片加载框架的终极封装和优化见这里:
+
+https://github.com/hss01248/ImageLoader
+
 
 
 ## 本工具类涵盖了:
